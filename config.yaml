@@ -1,0 +1,61 @@
+# Trading bot configuration — paper trading against real Binance market data.
+# All percentages are plain numbers: 6 means 6%.
+
+exchange: binance          # any ccxt exchange id with public OHLCV
+quote: USDT
+starting_cash: 10000       # match the testnet balance so "since start" reads correctly
+
+trading:
+  mode: live              # paper | live  (live also needs API keys via env, see README)
+  testnet: true            # live mode: use the exchange sandbox/testnet first
+  max_open_positions: 6    # hard cap across all tiers
+  max_daily_loss_pct: 5    # circuit breaker: auto-pause when day loss exceeds this
+
+fees:
+  taker_pct: 0.1           # simulated fee per fill
+  slippage_pct: 0.05       # simulated slippage per fill
+
+regime:
+  proxies: [BTC/USDT, ETH/USDT]
+  lookback_days: 7
+  threshold_pct: 5         # both up > threshold = BULL, both down = BEAR
+
+strategy:
+  timeframe: 4h
+  fast_ma: 12
+  slow_ma: 26
+  candles: 120             # history fetched per scan
+
+schedule:
+  scan_interval_minutes: 120     # tier 1 + 2 scan cycle
+  scanner_interval_minutes: 30   # tier 3 unicorn scanner
+
+analyst:
+  enabled: auto            # auto = use Claude if ANTHROPIC_API_KEY is set; true/false to force
+  model: claude-opus-4-8
+
+tiers:
+  - name: stable-core
+    symbols: [BTC/USDT, ETH/USDT, SOL/USDT, XRP/USDT, DOGE/USDT,
+              AVAX/USDT, LINK/USDT, LTC/USDT, BCH/USDT, UNI/USDT]
+    confidence_threshold: 0.65
+    position_pct: 5
+    take_profit_pct: 6
+    stop_loss_pct: 4
+
+  - name: momentum-midcap
+    symbols: [AAVE/USDT, DOT/USDT, RENDER/USDT, INJ/USDT, ARB/USDT, OP/USDT]
+    confidence_threshold: 0.72
+    position_pct: 3
+    take_profit_pct: 10
+    stop_loss_pct: 6
+
+scanner:                   # tier 3 "unicorn hunter" — only active in BULL regime
+  name: unicorn
+  symbols: [PEPE/USDT, WIF/USDT, SEI/USDT, TIA/USDT, JUP/USDT, SUI/USDT]
+  volume_spike_ratio: 3.0        # 24h volume vs 7-day average (200% above = 3x)
+  consecutive_green_30m: 3
+  confidence_threshold: 0.78
+  position_pct: 1.5
+  take_profit_pct: 15
+  stop_loss_pct: 8

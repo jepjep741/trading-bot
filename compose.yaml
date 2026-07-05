@@ -1,0 +1,38 @@
+# Rootless Podman: podman-compose up -d   (or: podman compose up -d)
+services:
+  tradingbot:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: tradingbot
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Helsinki
+      # Optional Claude analyst — leave unset to trade on technicals only:
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      #
+      # LIVE TRADING (bot container only — never add these to the dashboard
+      # service; it queues actions through the database by design).
+      # Read README "Going live" first. Keys go in an .env file, not here.
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
+      - EXCHANGE_API_SECRET=${EXCHANGE_API_SECRET}
+      # Required only for real funds (config trading.testnet: false):
+      # - LIVE_TRADING_ACK=I-ACCEPT-FULL-LOSS
+    volumes:
+      # :z for SELinux hosts (RHEL8); harmless on Debian
+      - ./data:/data:z
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: tradingbot-dashboard
+    restart: unless-stopped
+    command: ["python", "-u", "-m", "tradingbot", "web", "--host", "0.0.0.0", "--port", "8060"]
+    ports:
+      # pasta networking: access via http://127.0.0.1:8060 (not ::1)
+      - "8060:8060"
+    environment:
+      - TZ=Europe/Helsinki
+    volumes:
+      - ./data:/data:z
