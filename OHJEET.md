@@ -71,6 +71,13 @@ ei `localhost`/`::1`). Päivittyy itsestään minuutin välein.
 Kojelaudassa ei ole kirjautumista — älä avaa porttia 8060 ulospäin ilman
 autentikoivaa välityspalvelinta.
 
+## Kojelauta v3
+
+Uudempi React + FastAPI -kojelauta (tilastot, reaaliaikainen signaalisyöte,
+salasanasuojattu hallintapaneeli): katso [dashboard-v3/OHJEET.md](dashboard-v3/OHJEET.md).
+Käynnistys: `podman-compose --env-file .env up -d --build dashboard-v3` →
+http://127.0.0.1:8070.
+
 ## Komentorivi
 
 ```bash

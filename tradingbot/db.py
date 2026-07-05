@@ -47,6 +47,13 @@ CREATE TABLE IF NOT EXISTS signals (
     reasoning TEXT,
     source TEXT NOT NULL                       -- technical | claude
 );
+CREATE TABLE IF NOT EXISTS audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    actor TEXT NOT NULL,                       -- admin | bot
+    action TEXT NOT NULL,
+    detail TEXT
+);
 CREATE TABLE IF NOT EXISTS control (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -85,6 +92,11 @@ class Store:
         self.conn = sqlite3.connect(data_dir / "tradingbot.db")
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self.mode = "paper"   # engine overwrites; stamped on each opened position
+        try:
+            self.conn.execute("ALTER TABLE positions ADD COLUMN mode TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         cur = self.conn.execute("SELECT cash FROM account WHERE id = 1")
         if cur.fetchone() is None:
             self.conn.execute("INSERT INTO account (id, cash) VALUES (1, ?)",
@@ -149,9 +161,15 @@ class Store:
                       take_profit: float, stop_loss: float) -> int:
         cur = self.conn.execute(
             "INSERT INTO positions (symbol, tier, qty, entry_price, take_profit,"
-            " stop_loss, opened_at) VALUES (?,?,?,?,?,?,?)",
-            (symbol, tier, qty, price, take_profit, stop_loss, now()))
+            " stop_loss, opened_at, mode) VALUES (?,?,?,?,?,?,?,?)",
+            (symbol, tier, qty, price, take_profit, stop_loss, now(), self.mode))
         return cur.lastrowid
+
+    def record_audit(self, actor: str, action: str, detail: str = "") -> None:
+        self.conn.execute(
+            "INSERT INTO audit (ts, actor, action, detail) VALUES (?,?,?,?)",
+            (now(), actor, action, detail))
+        self.conn.commit()
 
     def close_position(self, position_id: int, exit_price: float, reason: str) -> None:
         self.conn.execute(

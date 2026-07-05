@@ -1,6 +1,8 @@
 """Load and validate config.yaml into plain dataclasses."""
 from __future__ import annotations
 
+import copy
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,6 +53,48 @@ class Config:
     max_daily_loss_pct: float = 5.0
     tiers: list[Tier] = field(default_factory=list)
     scanner: Scanner | None = None
+
+
+def apply_overrides(base: Config, raw_json: str) -> Config:
+    """Merge dashboard config overrides into a copy of the file config.
+
+    Hard caps — an override can NEVER increase risk beyond the file config:
+    position_pct / max_open_positions / max_daily_loss_pct only go DOWN,
+    confidence thresholds only go UP, TP/SL and trading mode are untouchable.
+    """
+    cfg = copy.deepcopy(base)
+    if not raw_json:
+        return cfg
+    try:
+        ov = json.loads(raw_json)
+    except ValueError:
+        return cfg
+
+    def clamp_tier(tier, base_tier, t_ov: dict):
+        if "position_pct" in t_ov:
+            tier.position_pct = min(float(t_ov["position_pct"]), base_tier.position_pct)
+        if "confidence_threshold" in t_ov:
+            tier.confidence_threshold = max(float(t_ov["confidence_threshold"]),
+                                            base_tier.confidence_threshold)
+        if "symbols" in t_ov and isinstance(t_ov["symbols"], list):
+            symbols = [s for s in t_ov["symbols"]
+                       if isinstance(s, str) and s.endswith("/" + base.quote)][:15]
+            if symbols:
+                tier.symbols = symbols
+
+    tier_ov = ov.get("tiers", {})
+    for tier, base_tier in zip(cfg.tiers, base.tiers):
+        if tier.name in tier_ov:
+            clamp_tier(tier, base_tier, tier_ov[tier.name])
+    if cfg.scanner and base.scanner and "scanner" in ov:
+        clamp_tier(cfg.scanner, base.scanner, ov["scanner"])
+    if "max_open_positions" in ov:
+        cfg.max_open_positions = min(int(ov["max_open_positions"]),
+                                     base.max_open_positions)
+    if "max_daily_loss_pct" in ov:
+        cfg.max_daily_loss_pct = min(float(ov["max_daily_loss_pct"]),
+                                     base.max_daily_loss_pct)
+    return cfg
 
 
 def load(path: Path = DEFAULT_CONFIG) -> Config:

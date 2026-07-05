@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Dark-first design tokens — one accent, generous spacing, quiet chrome. */
+@theme {
+  --color-bg: #0b0e14;
+  --color-surface: #131824;
+  --color-surface2: #1a2130;
+  --color-line: rgba(148, 163, 200, 0.12);
+  --color-ink: #e8ecf4;
+  --color-ink2: #9aa5bc;
+  --color-muted: #5d6880;
+  --color-accent: #4f8ef7;
+  --color-accent-dim: rgba(79, 142, 247, 0.14);
+  --color-good: #2fbf71;
+  --color-warn: #d9a514;
+  --color-danger: #e05252;
+  --color-danger-dim: rgba(224, 82, 82, 0.14);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html { background: var(--color-bg); }
+body { font-family: var(--font-sans); color: var(--color-ink); }
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+.tabular { font-variant-numeric: tabular-nums; }
+::-webkit-scrollbar { height: 8px; width: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-surface2); border-radius: 4px; }

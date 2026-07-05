@@ -1,0 +1,24 @@
+# Dashboard v3 — multi-stage: node builds the React frontend, python serves it.
+FROM docker.io/library/node:22-alpine AS frontend
+WORKDIR /fe
+COPY dashboard-v3/frontend/package*.json ./
+RUN npm ci
+COPY dashboard-v3/frontend/ ./
+RUN npm run build
+
+FROM docker.io/library/python:3.12-slim
+WORKDIR /app
+COPY dashboard-v3/backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY tradingbot/ tradingbot/
+COPY config.yaml .
+COPY dashboard-v3/backend/ dashboard-v3/backend/
+COPY --from=frontend /fe/dist dashboard-v3/frontend/dist
+
+ENV BOT_DATA_DIR=/data
+ENV BOT_CONFIG=/app/config.yaml
+VOLUME /data
+
+CMD ["python", "-m", "uvicorn", "app.main:app", "--app-dir", "dashboard-v3/backend", \
+     "--host", "0.0.0.0", "--port", "8070"]

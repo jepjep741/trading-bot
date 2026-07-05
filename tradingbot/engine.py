@@ -7,7 +7,7 @@ import time
 from . import regime as regime_mod
 from .analyst import Analyst
 from .broker import LiveBroker, PaperBroker
-from .config import Config, Tier
+from .config import Config, Tier, apply_overrides
 from .db import Store
 from .market_data import MarketData, make_exchange
 from .strategy import Signal, evaluate, volume_spike_scan
@@ -36,17 +36,28 @@ def build_broker(cfg: Config, store: Store):
 
 class Engine:
     def __init__(self, cfg: Config, store: Store, md: MarketData):
+        self.base_cfg = cfg
         self.cfg = cfg
         self.store = store
         self.md = md
+        store.mode = ("paper" if cfg.mode == "paper"
+                      else ("live-testnet" if cfg.testnet else "live"))
+        store.set_control("bot_mode", store.mode)
         self.broker = build_broker(cfg, store)
         if isinstance(self.broker, LiveBroker):
             free = self.broker.sync_cash()   # dashboard shows real balance at once
             print(f"exchange free balance: {free:.2f} {cfg.quote}")
         self.analyst = Analyst(cfg.analyst_model) if cfg.analyst_enabled else None
 
+    def refresh_cfg(self) -> None:
+        """Re-merge dashboard overrides (capped) at the start of every cycle."""
+        self.cfg = apply_overrides(self.base_cfg,
+                                   self.store.get_control("config_overrides", ""))
+
     # -- entry gating ------------------------------------------------------
     def entries_blocked(self) -> str | None:
+        if self.store.get_control("kill_switch", "0") == "1":
+            return "KILL SWITCH active"
         if self.store.get_control("trading_paused", "0") == "1":
             reason = self.store.get_control("pause_reason", "")
             return "trading paused" + (f" ({reason})" if reason else "")
@@ -142,6 +153,7 @@ class Engine:
 
     # -- full cycle ----------------------------------------------------------
     def scan_cycle(self) -> None:
+        self.refresh_cfg()
         reg = regime_mod.detect(self.md, self.cfg.regime_proxies,
                                 self.cfg.regime_lookback_days,
                                 self.cfg.regime_threshold_pct)
@@ -176,6 +188,7 @@ class Engine:
 
     def scanner_cycle(self) -> None:
         """Tier-3 unicorn hunter — runs on its own faster cadence, BULL only."""
+        self.refresh_cfg()
         sc = self.cfg.scanner
         if not sc:
             return
@@ -283,7 +296,12 @@ class Engine:
             # which silently postpones scans after the machine wakes up
             now = time.time()
             try:
-                if now - last_scan >= scan_s:
+                self.store.set_control("heartbeat", str(int(now)))
+                if self.store.get_control("kill_switch", "0") == "1":
+                    # halted: no scans, no entries — exits and dashboard
+                    # requests keep running through tick()
+                    self.tick()
+                elif now - last_scan >= scan_s:
                     last_scan = now
                     self.scan_cycle()
                 elif now - last_scanner >= scanner_s:

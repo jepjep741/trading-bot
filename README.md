@@ -68,6 +68,13 @@ and trades. Light/dark follows the browser's color scheme; refreshes every
 60 s. In compose it runs as the `dashboard` service on port 8060 — with pasta
 networking use `http://127.0.0.1:8060`, not `::1`.
 
+## Dashboard v3 (monitoring & admin)
+
+A React + FastAPI dashboard with statistics, live signal feed and an
+authenticated admin panel lives in [dashboard-v3/](dashboard-v3/README.md).
+Start: `podman-compose --env-file .env up -d --build dashboard-v3` →
+http://127.0.0.1:8070. Admin requires `DASHBOARD_ADMIN_PASSWORD` in `.env`.
+
 ## Run in rootless Podman
 
 ```bash
