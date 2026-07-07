@@ -6,6 +6,10 @@ Crypto **paper-trading** bot modeled on the tiered-architecture design from
 [this article](https://medium.com/@augustozz/i-built-an-ai-crypto-trading-bot-with-claude-skills-here-is-how-it-works-f664b06d2fa6):
 real market data, simulated money, no exchange account needed.
 
+If you find this project useful, you can support it:
+
+<a href="https://www.buymeacoffee.com/jepjep741"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="217" height="60"></a>
+
 ## How it works
 
 Every scan cycle:
